@@ -188,9 +188,15 @@ struct ContentView: View {
                         } else {
                             // Recipe list
                             List(viewModel.filteredRecipes) { recipe in
-                                RecipeRow(recipe: recipe)
+                                NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
+                                    RecipeRow(recipe: recipe)
+                                }
+                                // Add horizontal padding on both sides
+                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
                             }
                             .listStyle(PlainListStyle())
+                            // Make separators edge-to-edge
+                            .environment(\.defaultMinListRowHeight, 1)
                             .refreshable {
                                 await viewModel.refreshRecipes()
                             }
@@ -210,7 +216,7 @@ struct RecipeRow: View {
     let recipe: Recipe
     
     var body: some View {
-        HStack {
+        HStack(spacing: 12) { // Add spacing between image and text
             AsyncImage(url: URL(string: recipe.smallPhotoUrl)) { phase in
                 switch phase {
                 case .empty:
@@ -232,15 +238,20 @@ struct RecipeRow: View {
             }
             .frame(width: 60, height: 60)
             
-            VStack(alignment: .leading) {
+            VStack(alignment: .leading, spacing: 4) { // Add spacing between title and subtitle
                 Text(recipe.name)
                     .font(.headline)
                 Text(recipe.cuisine)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
+            
+            Spacer()
+            
+            // Remove the custom chevron since NavigationLink already provides one
+            // This prevents the double chevron issue
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 12) // Increase vertical padding
     }
 }
 
