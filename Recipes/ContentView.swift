@@ -10,6 +10,8 @@ import Combine
 
 class RecipesViewModel: ObservableObject {
     @Published var recipes: [Recipe] = []
+    @Published var filteredRecipes: [Recipe] = []
+    @Published var searchText: String = ""
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
     
@@ -18,6 +20,15 @@ class RecipesViewModel: ObservableObject {
     
     init(recipeService: RecipeServiceProtocol = RecipeServiceFactory().makeRemoteService()) {
         self.recipeService = recipeService
+        
+        // Set up search text publisher to filter recipes
+        $searchText
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .removeDuplicates()
+            .sink { [weak self] searchText in
+                self?.filterRecipes(searchText: searchText)
+            }
+            .store(in: &cancellables)
     }
     
     func loadRecipes() {
@@ -34,6 +45,7 @@ class RecipesViewModel: ObservableObject {
                 }
             } receiveValue: { [weak self] recipes in
                 self?.recipes = recipes
+                self?.filterRecipes()
             }
             .store(in: &cancellables)
     }
@@ -47,10 +59,33 @@ class RecipesViewModel: ObservableObject {
         do {
             let recipes = try await fetchRecipesAsync()
             self.recipes = recipes
+            self.filterRecipes()
         } catch let error as RecipeServiceError {
             errorMessage = error.localizedDescription
         } catch {
             errorMessage = "An unexpected error occurred"
+        }
+    }
+    
+    private func filterRecipes(searchText: String? = nil) {
+        let searchQuery = searchText ?? self.searchText
+        
+        if searchQuery.isEmpty {
+            filteredRecipes = recipes
+            return
+        }
+        
+        // Split search query into words for better matching
+        let searchTerms = searchQuery.lowercased().split(separator: " ").map(String.init)
+        
+        filteredRecipes = recipes.filter { recipe in
+            // Create a combined string of cuisine and name for searching
+            let searchableText = "\(recipe.cuisine) \(recipe.name)".lowercased()
+            
+            // Check if all search terms are found in the searchable text
+            return searchTerms.allSatisfy { term in
+                searchableText.contains(term)
+            }
         }
     }
     
@@ -73,6 +108,11 @@ struct ContentView: View {
     
     init() {
         // Using the default initialization with factory
+    }
+    
+    // Computed property to determine if search results are empty
+    private var isSearchResultEmpty: Bool {
+        return !viewModel.searchText.isEmpty && viewModel.filteredRecipes.isEmpty
     }
     
     var body: some View {
@@ -105,12 +145,56 @@ struct ContentView: View {
                     }
                     .padding()
                 } else {
-                    List(viewModel.recipes) { recipe in
-                        RecipeRow(recipe: recipe)
-                    }
-                    .listStyle(PlainListStyle())
-                    .refreshable {
-                        await viewModel.refreshRecipes()
+                    VStack(spacing: 0) {
+                        // Search bar
+                        HStack {
+                            Image(systemName: "magnifyingglass")
+                                .foregroundColor(.gray)
+                            
+                            TextField("Search recipes...", text: $viewModel.searchText)
+                                .autocapitalization(.none)
+                                .disableAutocorrection(true)
+                            
+                            if !viewModel.searchText.isEmpty {
+                                Button(action: {
+                                    viewModel.searchText = ""
+                                }) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .foregroundColor(.gray)
+                                }
+                            }
+                        }
+                        .padding(10)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(10)
+                        .padding(.horizontal)
+                        
+                        if isSearchResultEmpty {
+                            // No results view
+                            VStack(spacing: 20) {
+                                Image(systemName: "magnifyingglass")
+                                    .font(.system(size: 50))
+                                    .foregroundColor(.gray)
+                                
+                                Text("No recipes found")
+                                    .font(.headline)
+                                
+                                Text("Try a different search term")
+                                    .font(.subheadline)
+                                    .foregroundColor(.gray)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding()
+                        } else {
+                            // Recipe list
+                            List(viewModel.filteredRecipes) { recipe in
+                                RecipeRow(recipe: recipe)
+                            }
+                            .listStyle(PlainListStyle())
+                            .refreshable {
+                                await viewModel.refreshRecipes()
+                            }
+                        }
                     }
                 }
             }
