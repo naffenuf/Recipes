@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8728A2C02D7F89580053A783 /* README.txt in Resources */ = {isa = PBXBuildFile; fileRef = 8728A2BF2D7F89580053A783 /* README.txt */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		87CAED472D7A319A0093F334 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +28,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		8728A2BF2D7F89580053A783 /* README.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = README.txt; sourceTree = "<group>"; };
 		87CAED362D7A31980093F334 /* Recipes.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Recipes.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		87CAED462D7A319A0093F334 /* RecipesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecipesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		87CAED502D7A319A0093F334 /* RecipesUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecipesUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -75,6 +80,7 @@
 		87CAED2D2D7A31980093F334 = {
 			isa = PBXGroup;
 			children = (
+				8728A2BF2D7F89580053A783 /* README.txt */,
 				87CAED382D7A31980093F334 /* Recipes */,
 				87CAED492D7A319A0093F334 /* RecipesTests */,
 				87CAED532D7A319A0093F334 /* RecipesUITests */,
@@ -212,6 +218,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				8728A2C02D7F89580053A783 /* README.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

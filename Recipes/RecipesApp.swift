@@ -9,9 +9,16 @@ import SwiftUI
 
 @main
 struct RecipesApp: App {
+    // Register the app delegate for handling app lifecycle events
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                    // Additional cleanup if needed when app terminates
+                    print("App termination detected in SwiftUI lifecycle")
+                }
         }
     }
 }
