@@ -31,7 +31,8 @@ struct RecipeDetailView: View {
                        },
                        onPageLoaded: {
                            viewModel.checkForVideoPlayer()
-                       })
+                       },
+                       disableAutoReload: true)
                 .opacity(viewModel.isShowingVideo ? 1 : 0)
             }
         }
