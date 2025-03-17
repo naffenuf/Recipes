@@ -5,6 +5,7 @@ struct WebView: UIViewRepresentable {
     let initialUrl: URL
     var onWebViewCreated: ((WKWebView) -> Void)?
     var onPageLoaded: (() -> Void)?
+    var disableAutoReload: Bool = false
     
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -26,10 +27,16 @@ struct WebView: UIViewRepresentable {
     }
     
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // Only reload if the WebView hasn't loaded a different URL (e.g., after search fallback)
-        if webView.url == nil || (webView.url?.absoluteString != initialUrl.absoluteString && !webView.url!.absoluteString.contains("youtube.com/results")) {
+        // If auto-reload is disabled, don't reload the WebView
+        if disableAutoReload {
+            print("Auto-reload disabled for WebView with URL: \(String(describing: webView.url?.absoluteString))")
+            return
+        }
+        
+        // Only reload if the WebView hasn't loaded a URL yet
+        if webView.url == nil {
             let request = URLRequest(url: initialUrl)
-            print("Reloading WebView with initial URL: \(initialUrl.absoluteString)")
+            print("Loading initial URL in WebView: \(initialUrl.absoluteString)")
             webView.load(request)
         } else {
             print("No reload needed for current URL: \(String(describing: webView.url?.absoluteString))")
