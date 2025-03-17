@@ -141,7 +141,7 @@ struct ContentView: View {
                             .fontWeight(.bold)
                         
                         Text(errorMessage)
-                            .multilineTextAlignment(.center)
+                            .multilineTextAlignment(.leading)
                             .padding()
                         
                         Button("Try Again") {
