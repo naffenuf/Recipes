@@ -19,11 +19,11 @@ struct RecipeDetailView: View {
     
     var body: some View {
         ZStack {
-            WebView(url: viewModel.siteUrl)
+            WebView(initialUrl: viewModel.siteUrl)
                 .opacity(viewModel.isShowingVideo ? 0 : 1)
             
             if let videoUrl = viewModel.videoUrl {
-                WebView(url: videoUrl,
+                WebView(initialUrl: videoUrl,
                        onWebViewCreated: { webView in
                            DispatchQueue.main.async {
                                self.viewModel.videoWebView = webView
