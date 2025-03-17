@@ -13,7 +13,8 @@ struct RecipeGridItem: View {
     
     var body: some View {
         VStack(spacing: 0) {
-            ZStack(alignment: .bottom) {
+            ZStack {
+                // Background image
                 AsyncImage(url: URL(string: recipe.largePhotoUrl)) { phase in
                     switch phase {
                     case .empty:
@@ -39,32 +40,46 @@ struct RecipeGridItem: View {
                     }
                 }
                 .aspectRatio(1, contentMode: .fill)
-                .clipped()
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(recipe.name)
-                        .font(.headline)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
-                        .lineLimit(2)
-                        .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
-                    
-                    Text(recipe.cuisine)
-                        .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.9))
-                        .lineLimit(1)
-                        .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
+                // Gradient overlay
+                VStack {
+                    Spacer()
+                    Rectangle()
+                        .fill(
+                            LinearGradient(
+                                gradient: Gradient(colors: [Color.black.opacity(0.8), Color.black.opacity(0)]),
+                                startPoint: .bottom,
+                                endPoint: .top
+                            )
+                        )
+                        .frame(height: 80)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(12)
-                .background(
-                    LinearGradient(
-                        gradient: Gradient(colors: [Color.black.opacity(0.8), Color.black.opacity(0)]),
-                        startPoint: .bottom,
-                        endPoint: .top
-                    )
-                )
+                
+                // Text overlay
+                VStack {
+                    Spacer()
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(recipe.name)
+                                .font(.headline)
+                                .fontWeight(.bold)
+                                .foregroundColor(.white)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.leading)
+                                .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
+                            
+                            Text(recipe.cuisine)
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.9))
+                                .lineLimit(1)
+                                .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
+                        }
+                        Spacer()
+                    }
+                    .padding(12)
+                }
             }
+            .clipped()
         }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(
