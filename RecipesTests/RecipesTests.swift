@@ -164,7 +164,7 @@ struct RecipesDTOTests {
                 youtube_url: "https://www.youtube.com/watch?v=some.id"
             ),
             RecipeDTO(
-                uuid: "f8c8-451f-98d0-4088e2b40eb6-eed6005f",
+                uuid: "f8c8451f-98d0-4088-e2b4-0eb6eed6005f",
                 cuisine: "Italian",
                 name: "Tiramisu",
                 photo_url_large: "https://some.url/large2.jpg",
