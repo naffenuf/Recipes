@@ -14,11 +14,14 @@ struct RecipesApp: App {
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
-                    // Additional cleanup if needed when app terminates
-                    print("App termination detected in SwiftUI lifecycle")
-                }
+            NavigationStack {
+                ContentView()
+                    .navigationTitle("Recipes")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willTerminateNotification)) { _ in
+                // Additional cleanup if needed when app terminates
+                print("App termination detected in SwiftUI lifecycle")
+            }
         }
     }
 }

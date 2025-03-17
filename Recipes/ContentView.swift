@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 import Combine
 
 class RecipesViewModel: ObservableObject {
@@ -105,6 +106,7 @@ class RecipesViewModel: ObservableObject {
 
 struct ContentView: View {
     @StateObject private var viewModel = RecipesViewModel()
+    @State private var isIpad = UIDevice.current.userInterfaceIdiom == .pad
     
     init() {
         // Using the default initialization with factory
@@ -115,9 +117,16 @@ struct ContentView: View {
         return !viewModel.searchText.isEmpty && viewModel.filteredRecipes.isEmpty
     }
     
+    // Computed property to determine grid columns based on device
+    private var gridColumns: [GridItem] {
+        // Use fixed number of columns with proper spacing
+        let columns = isIpad ? 3 : 2
+        // Use a larger spacing value to ensure clear separation between items
+        return Array(repeating: GridItem(.flexible(), spacing: 16), count: columns)
+    }
+    
     var body: some View {
-        NavigationView {
-            ZStack {
+        ZStack {
                 if viewModel.isLoading {
                     ProgressView("Loading recipes...")
                         .progressViewStyle(CircularProgressViewStyle())
@@ -185,26 +194,65 @@ struct ContentView: View {
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .padding()
-                        } else {
-                            // Recipe list
-                            List(viewModel.filteredRecipes) { recipe in
-                                NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
-                                    RecipeRow(recipe: recipe)
+                        } else if isIpad {
+                            // Grid layout for iPad
+                            ScrollView {
+                                // Title with recipe count (centered)
+                                HStack {
+                                    Spacer()
+                                    Text("\(viewModel.filteredRecipes.count) Recipes")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
                                 }
-                                // Add horizontal padding on both sides
-                                .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                                .padding(.horizontal, 16)
+                                .padding(.top, 16)
+                                .padding(.bottom, 8)
+                                
+                                LazyVGrid(columns: gridColumns, spacing: 16) {
+                                    ForEach(viewModel.filteredRecipes) { recipe in
+                                        NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
+                                            RecipeGridItem(recipe: recipe)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
                             }
-                            .listStyle(PlainListStyle())
-                            // Make separators edge-to-edge
-                            .environment(\.defaultMinListRowHeight, 1)
+                            .refreshable {
+                                await viewModel.refreshRecipes()
+                            }
+                        } else {
+                            // Grid layout for iPhone (2 columns)
+                            ScrollView {
+                                // Title with recipe count (centered)
+                                HStack {
+                                    Spacer()
+                                    Text("\(viewModel.filteredRecipes.count) Recipes")
+                                        .font(.headline)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.top, 16)
+                                .padding(.bottom, 8)
+                                
+                                LazyVGrid(columns: gridColumns, spacing: 16) {
+                                    ForEach(viewModel.filteredRecipes) { recipe in
+                                        NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
+                                            RecipeGridItem(recipe: recipe)
+                                        }
+                                    }
+                                }
+                                .padding(.horizontal, 16)
+                                .padding(.bottom, 16)
+                            }
                             .refreshable {
                                 await viewModel.refreshRecipes()
                             }
                         }
                     }
                 }
-            }
-            .navigationTitle("Recipes")
         }
         .onAppear {
             viewModel.loadRecipes()
@@ -216,7 +264,7 @@ struct RecipeRow: View {
     let recipe: Recipe
     
     var body: some View {
-        HStack(spacing: 12) { // Add spacing between image and text
+        HStack {
             AsyncImage(url: URL(string: recipe.smallPhotoUrl)) { phase in
                 switch phase {
                 case .empty:
@@ -237,21 +285,97 @@ struct RecipeRow: View {
                 }
             }
             .frame(width: 60, height: 60)
+            .padding(.leading, 4) // Add a bit of padding to the left of the image
             
-            VStack(alignment: .leading, spacing: 4) { // Add spacing between title and subtitle
+            VStack(alignment: .leading) {
                 Text(recipe.name)
                     .font(.headline)
                 Text(recipe.cuisine)
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
+            .padding(.leading, 8) // Add padding between image and text
             
             Spacer()
             
             // Remove the custom chevron since NavigationLink already provides one
             // This prevents the double chevron issue
         }
-        .padding(.vertical, 12) // Increase vertical padding
+        .padding(.vertical, 8)
+    }
+}
+
+// Grid item for iPad and iPhone grid layout
+struct RecipeGridItem: View {
+    let recipe: Recipe
+    
+    var body: some View {
+        // Card container
+        VStack(spacing: 0) {
+            // Recipe image
+            ZStack(alignment: .bottom) {
+                AsyncImage(url: URL(string: recipe.largePhotoUrl)) { phase in
+                    switch phase {
+                    case .empty:
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                ProgressView()
+                            )
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    case .failure:
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .overlay(
+                                Image(systemName: "photo")
+                                    .font(.largeTitle)
+                                    .foregroundColor(.white)
+                            )
+                    @unknown default:
+                        EmptyView()
+                    }
+                }
+                .aspectRatio(1, contentMode: .fill) // 1:1 aspect ratio (square)
+                .clipped()
+                
+                // Text overlay with gradient background
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(recipe.name)
+                        .font(.headline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.white)
+                        .lineLimit(2)
+                        .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
+                    
+                    Text(recipe.cuisine)
+                        .font(.subheadline)
+                        .foregroundColor(.white.opacity(0.9))
+                        .lineLimit(1)
+                        .shadow(color: .black.opacity(0.7), radius: 2, x: 0, y: 1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.black.opacity(0.8), Color.black.opacity(0)]),
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
+                )
+            }
+        }
+        // Card styling
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+        )
+        .shadow(color: Color.black.opacity(0.1), radius: 3, x: 0, y: 2)
+        .frame(minHeight: UIDevice.current.userInterfaceIdiom == .pad ? 170 : 150)
+        .padding(6) // Add consistent padding around each grid item
     }
 }
 

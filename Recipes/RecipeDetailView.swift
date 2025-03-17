@@ -1,304 +1,163 @@
-//
-//  RecipeDetailView.swift
-//  Recipes
-//
-//  Created by Craig Boyce on 3/16/25.
-//
-
 import SwiftUI
+import WebKit
 
 struct RecipeDetailView: View {
     let recipe: Recipe
     @Environment(\.presentationMode) var presentationMode
-    @State private var isLoading = true
-    @State private var showWebView = true
-    @State private var showError = false
-    @State private var errorMessage = ""
+    @State private var isShowingVideo = false
+    private let siteUrl: URL
+    private let videoUrl: URL?
+    
+    @State private var videoWebView: WKWebView?
+    @State private var hasLoadedSearch = false  // New flag to track search page load
+    
+    init(recipe: Recipe) {
+        self.recipe = recipe
+        self.siteUrl = URL(string: recipe.siteUrl) ?? Self.googleSearchURL(for: recipe)
+        self.videoUrl = !recipe.videoUrl.isEmpty ? URL(string: recipe.videoUrl) ?? Self.googleSearchURL(for: recipe) : nil
+    }
     
     var body: some View {
         ZStack {
-            if showWebView {
-                WebView(url: URL(string: recipe.siteUrl) ?? URL(string: "https://example.com")!, onError: { error, response in
-                    handleWebViewError(error, response: response)
-                })
-                .navigationTitle(recipe.name)
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarItems(trailing: HStack(spacing: 16) {
-                    // Video button (only if video URL exists)
-                    if !recipe.videoUrl.isEmpty, let videoUrl = URL(string: recipe.videoUrl) {
-                        Button(action: {
-                            openVideo()
-                        }) {
-                            Image(systemName: "play.circle")
-                                .imageScale(.large)
+            WebView(url: siteUrl)
+                .opacity(isShowingVideo ? 0 : 1)
+            
+            if let videoUrl = videoUrl {
+                WebView(url: videoUrl,
+                       onWebViewCreated: { webView in
+                           DispatchQueue.main.async {
+                               self.videoWebView = webView
+                           }
+                       },
+                       onPageLoaded: {
+                           checkForVideoPlayer()
+                       })
+                .opacity(isShowingVideo ? 1 : 0)
+            }
+        }
+        .navigationTitle(recipe.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarItems(trailing: HStack(spacing: 20) {
+            if videoUrl != nil {
+                Button(action: toggleVideoRecipe) {
+                    Image(systemName: isShowingVideo ? "doc.text" : "play.circle")
+                        .font(.system(size: 22))
+                        .foregroundColor(.blue)
+                        .frame(width: 44, height: 44)
+                }
+                .help(isShowingVideo ? "View Recipe Directions" : "Watch Recipe Video")
+            }
+            
+            Button(action: shareRecipe) {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 22))
+                    .foregroundColor(.blue)
+                    .frame(width: 44, height: 44)
+            }
+        })
+    }
+    
+    private func toggleVideoRecipe() {
+        if isShowingVideo {
+            if let webView = videoWebView {
+                let pauseScript = """
+                var player = document.getElementsByTagName('video')[0] || 
+                            document.getElementById('movie_player') || 
+                            window.YT?.Player;
+                if (player) {
+                    if (player.pause) {
+                        player.pause();
+                    } else if (player.pauseVideo) {
+                        player.pauseVideo();
+                    }
+                }
+                """
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    webView.evaluateJavaScript(pauseScript) { (result, error) in
+                        if let error = error {
+                            print("Error pausing video: \(error.localizedDescription)")
+                        } else {
+                            print("Video pause attempted successfully")
                         }
                     }
-                    
-                    // Share button
-                    Button(action: {
-                        shareRecipe()
-                    }) {
-                        Image(systemName: "square.and.arrow.up")
-                            .imageScale(.large)
-                    }
-                })
+                    self.isShowingVideo = false
+                }
             } else {
-                // Fallback content if web view fails
-                VStack(spacing: 20) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.system(size: 60))
-                        .foregroundColor(.orange)
-                    
-                    Text(errorMessage)
-                        .font(.headline)
-                        .multilineTextAlignment(.center)
-                        .padding()
-                    
-                    if !recipe.videoUrl.isEmpty {
-                        Button(action: {
-                            openVideo()
-                        }) {
-                            Label("Watch Recipe Video", systemImage: "play.circle.fill")
-                                .font(.headline)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
-                        }
-                        .padding(.top)
-                    }
-                    
-                    Button(action: {
-                        searchYouTube()
-                    }) {
-                        Label("Search on YouTube", systemImage: "magnifyingglass")
-                            .font(.headline)
-                            .padding()
-                            .background(Color.red)
-                            .foregroundColor(.white)
-                            .cornerRadius(10)
-                    }
-                    .padding(.top, 5)
-                }
-                .padding()
-                .navigationTitle(recipe.name)
-                .navigationBarTitleDisplayMode(.inline)
-                .navigationBarItems(trailing: Button(action: {
-                    shareRecipe()
-                }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .imageScale(.large)
-                })
-            }
-            
-            // Loading overlay
-            if isLoading {
-                Color(.systemBackground).opacity(0.4)
-                ProgressView("Loading recipe...")
-                    .progressViewStyle(CircularProgressViewStyle())
-                    .padding()
-                    .background(RoundedRectangle(cornerRadius: 10).fill(Color(.systemBackground)))
-                    .shadow(radius: 10)
-            }
-        }
-        .onAppear {
-            // Simulate loading time for the WebView
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                isLoading = false
-            }
-        }
-    }
-    
-    // Handle WebView errors including 404s
-    private func handleWebViewError(_ error: Error, response: HTTPURLResponse?) {
-        // Check if it's a 404 error
-        let is404 = response?.statusCode == 404
-        let isConnectionError = (error as NSError).domain == NSURLErrorDomain &&
-                               ((error as NSError).code == NSURLErrorCannotFindHost ||
-                                (error as NSError).code == NSURLErrorCannotConnectToHost)
-        
-        if is404 || isConnectionError {
-            DispatchQueue.main.async {
-                // If we have a video URL, go directly to it
-                if !recipe.videoUrl.isEmpty {
-                    errorMessage = "The recipe page couldn't be found. Opening the video instead."
-                    showWebView = false
-                    // Slight delay to show the error message before opening video
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        openVideo()
-                    }
-                } else {
-                    // No video, show error and YouTube search option
-                    errorMessage = "The recipe page couldn't be found. Would you like to search for it on YouTube?"
-                    showWebView = false
-                }
+                isShowingVideo = false
             }
         } else {
-            // Other errors
-            DispatchQueue.main.async {
-                errorMessage = "There was a problem loading the recipe: \(error.localizedDescription)"
-                showWebView = false
-            }
+            isShowingVideo = true
         }
     }
     
-    // Open the video URL with fallback to YouTube search
-    private func openVideo() {
-        guard !recipe.videoUrl.isEmpty else {
-            searchYouTube()
+    private func checkForVideoPlayer() {
+        guard let webView = videoWebView else { return }
+        guard !hasLoadedSearch else {  // Skip check if we've already loaded search
+            print("Skipping video check - already on search page")
             return
         }
         
-        guard let videoUrl = URL(string: recipe.videoUrl) else {
-            // Invalid video URL, fallback to YouTube search
-            searchYouTube()
-            return
+        let checkScript = """
+        var video = document.getElementsByTagName('video')[0];
+        var player = document.getElementById('movie_player');
+        var errorMessage = document.querySelector('.ytp-error-message') || 
+                          document.querySelector('.video-unavailable-message');
+        var isPlayable = false;
+        
+        if (video) {
+            isPlayable = video.readyState >= 2;
+        } else if (player) {
+            var ytPlayer = window.YT && window.YT.Player ? document.querySelector('.html5-video-player') : null;
+            isPlayable = ytPlayer && ytPlayer.getPlayerState && ytPlayer.getPlayerState() !== -1 && ytPlayer.getPlayerState() !== 5;
         }
         
-        // Check if it's a YouTube video that might be unavailable
-        if videoUrl.absoluteString.contains("youtube.com/watch") || videoUrl.absoluteString.contains("youtu.be/") {
-            // For YouTube videos, it's better to just search instead of trying to open potentially unavailable videos
-            // This avoids the "This video is unavailable" screen
-            searchYouTube()
-            return
-        }
+        !(errorMessage || !isPlayable);
+        """
         
-        // For other video URLs, check if they're valid before opening
-        let session = URLSession.shared
-        let task = session.dataTask(with: videoUrl) { _, response, error in
-            DispatchQueue.main.async {
-                if let httpResponse = response as? HTTPURLResponse {
-                    if httpResponse.statusCode == 404 || httpResponse.statusCode >= 400 {
-                        // Video URL returned error, fallback to YouTube search
-                        self.searchYouTube()
-                    } else {
-                        // URL is valid, open it
-                        self.openURLSafely(videoUrl)
-                    }
-                } else if error != nil {
-                    // Error loading URL, fallback to YouTube search
-                    self.searchYouTube()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+            webView.evaluateJavaScript(checkScript) { (result, error) in
+                if let isPlayable = result as? Bool, !isPlayable {
+                    print("No playable video detected, loading YouTube search in WebView")
+                    self.loadYouTubeSearch(in: webView)
+                } else if let error = error {
+                    print("Error checking video status: \(error.localizedDescription)")
+                    self.loadYouTubeSearch(in: webView)
                 } else {
-                    // URL is valid, open it
-                    self.openURLSafely(videoUrl)
+                    print("Playable video detected")
                 }
             }
         }
-        task.resume()
     }
     
-    // Helper method to safely open URLs with error handling for simulator
-    private func openURLSafely(_ url: URL) {
-        if UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url, options: [:]) { success in
-                if !success {
-                    // If opening fails (which can happen in simulator), fallback to search
-                    self.searchYouTube()
-                }
-            }
-        } else {
-            // Can't open URL, fallback to search
-            searchYouTube()
-        }
-    }
-    
-    // Search YouTube with recipe name and cuisine
-    private func searchYouTube() {
-        // Create a more specific search query with both name and cuisine
-        // Format: "[Full Recipe Name] [Full Cuisine Name] recipe how to make"
-        let fullRecipeName = recipe.name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let fullCuisineName = recipe.cuisine.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Debug prints to see what's happening with special characters
-        print("DEBUG - Recipe name: '\(recipe.name)'")
-        print("DEBUG - Cuisine: '\(recipe.cuisine)'")
-        print("DEBUG - Trimmed name: '\(fullRecipeName)'")
-        
-        // Handle special characters like & in recipe names
-        // Replace & with "and" for better search results
-        let processedName = fullRecipeName.replacingOccurrences(of: "&", with: "and")
-        
-        let searchQuery = "\(processedName) \(fullCuisineName) recipe how to make"
-        print("DEBUG - Final search query: '\(searchQuery)'")
-        
+    private func loadYouTubeSearch(in webView: WKWebView) {
+        let searchQuery = "\(recipe.name) \(recipe.cuisine) recipe video"
         let encodedQuery = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        print("DEBUG - Encoded query: '\(encodedQuery)'")
-        
-        let youtubeURL = URL(string: "https://www.youtube.com/results?search_query=\(encodedQuery)")!
-        
-        openURLSafely(youtubeURL)
-        
-        // Show a message to the user that we're searching for the recipe
-        DispatchQueue.main.async {
-            self.errorMessage = "Searching for '\(processedName)' (\(fullCuisineName)) recipes on YouTube..."
+        if let youtubeURL = URL(string: "https://www.youtube.com/results?search_query=\(encodedQuery)") {
+            DispatchQueue.main.async {
+                let request = URLRequest(url: youtubeURL)
+                webView.load(request)
+                self.hasLoadedSearch = true  // Set flag to prevent further checks
+                print("Loaded YouTube search in WebView")
+            }
         }
     }
     
-    // Keep your existing shareRecipe() method here
+    private static func googleSearchURL(for recipe: Recipe) -> URL {
+        let searchQuery = "\(recipe.name) \(recipe.cuisine) recipe"
+        let encodedQuery = searchQuery.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        return URL(string: "https://www.google.com/search?q=\(encodedQuery)")!
+    }
+    
     private func shareRecipe() {
-        // Your existing share recipe implementation
         guard let url = URL(string: recipe.siteUrl) else { return }
-        
-        // Create a text representation for sharing
         let textToShare = "Check out this recipe for \(recipe.name) (\(recipe.cuisine)): \(recipe.siteUrl)"
+        let itemsToShare: [Any] = [textToShare, url]
         
-        // Create an array of items to share
-        var itemsToShare: [Any] = [textToShare, url]
+        let activityVC = UIActivityViewController(activityItems: itemsToShare, applicationActivities: nil)
         
-        // Create an attributed string for richer text sharing
-        let attributedString = NSAttributedString(string: "\(recipe.name)\n\(recipe.cuisine)\n\nView the full recipe at: \(recipe.siteUrl)", attributes: [NSAttributedString.Key.font: UIFont.systemFont(ofSize: 16)])
-        itemsToShare.append(attributedString)
-        
-        // Create a custom activity provider to force more options
-        class ImageActivityItemProvider: UIActivityItemProvider {
-            var image: UIImage?
-            var url: URL
-            
-            init(placeholderItem: Any, image: UIImage?, url: URL) {
-                self.image = image
-                self.url = url
-                super.init(placeholderItem: placeholderItem)
-            }
-            
-            override var item: Any {
-                // Different item based on activity type
-                switch self.activityType {
-                case UIActivity.ActivityType.mail, UIActivity.ActivityType.message,
-                     UIActivity.ActivityType.postToTwitter, UIActivity.ActivityType.postToFacebook:
-                    if let image = self.image {
-                        return image
-                    }
-                    return url
-                default:
-                    return url
-                }
-            }
-        }
-        
-        // Create a placeholder image
-        let placeholderImage = UIImage(systemName: "photo") ?? UIImage()
-        let imageProvider = ImageActivityItemProvider(placeholderItem: placeholderImage, image: nil, url: url)
-        itemsToShare.append(imageProvider)
-        
-        let activityVC = UIActivityViewController(
-            activityItems: itemsToShare,
-            applicationActivities: nil
-        )
-        
-        // Make sure we don't exclude anything
-        activityVC.excludedActivityTypes = []
-        
-        // Configure popover for iPad
-        if let popoverController = activityVC.popoverPresentationController {
-            popoverController.sourceView = UIApplication.shared.windows.first
-            popoverController.sourceRect = CGRect(x: UIScreen.main.bounds.midX, y: UIScreen.main.bounds.midY, width: 0, height: 0)
-            popoverController.permittedArrowDirections = []
-        }
-        
-        // Present the activity view controller
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let rootViewController = windowScene.windows.first?.rootViewController {
-            rootViewController.present(activityVC, animated: true, completion: nil)
+            rootViewController.present(activityVC, animated: true)
         }
     }
 }
