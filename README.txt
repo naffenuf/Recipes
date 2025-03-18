@@ -15,7 +15,7 @@ By focusing on architecture, UX, taste and what truly makes an app delightful to
 approach, but I truly believe I'm on the right track with this.
 
 ### Weakest Part of the Project: What do you think is the weakest part of your project?
-I wish there was a better way to handle bad urls.
+I wish there was a better way to handle bad urls.  Could have used more time to focus on accessibility.
 
 ### Additional Information: Is there anything else we should know? Feel free to share any insights or constraints you encountered.
 Just that it was a lot of fun making this! 
